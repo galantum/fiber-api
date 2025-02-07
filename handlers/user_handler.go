@@ -1,37 +1,31 @@
 package handlers
 
 import (
-	"fiber-api/config"
 	"fiber-api/models"
+	"fiber-api/services"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 )
 
-func GetUsers(c *fiber.Ctx) error {
-	//_, err := config.DB.Exec(c.Context(), "SET search_path TO account")
+type UserHandler struct {
+	userService services.UserService
+}
 
-	rows, err := config.DB.Query(c.Context(), "SELECT id, user_name, user_email FROM account.users")
+func NewUserHandler(userService services.UserService) *UserHandler {
+	return &UserHandler{userService: userService}
+}
+
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+	users, err := h.userService.GetUsers()
 	if err != nil {
-		log.Error(err)
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch users"})
 	}
-	defer rows.Close()
-
-	users := []models.User{}
-
-	for rows.Next() {
-		var user models.User
-		rows.Scan(&user.ID, &user.Name, &user.Email)
-		users = append(users, user)
-	}
-
 	return c.JSON(users)
 }
 
-// GetUser mengambil user berdasarkan ID
-func GetUser(c *fiber.Ctx) error {
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		log.Error("Invalid ID format")
@@ -39,9 +33,7 @@ func GetUser(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	err = config.DB.QueryRow(c.Context(), "SELECT id, user_name, user_email FROM account.users WHERE id = $1", id).
-		Scan(&user.ID, &user.Name, &user.Email)
-
+	user, err = h.userService.GetUser(id)
 	if err != nil {
 		log.Error(err)
 		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
@@ -50,13 +42,13 @@ func GetUser(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func CreateUser(c *fiber.Ctx) error {
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	var user models.User
 	if err := c.BodyParser(&user); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	_, err := config.DB.Exec(c.Context(), "INSERT INTO account.users (user_name, user_email) VALUES ($1, $2)", user.Name, user.Email)
+	err := h.userService.CreateUser(user)
 	if err != nil {
 		log.Error(err)
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create user"})
@@ -65,31 +57,32 @@ func CreateUser(c *fiber.Ctx) error {
 	return c.Status(201).JSON(user)
 }
 
-func UpdateUser(c *fiber.Ctx) error {
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	var user models.User
 	if err := c.BodyParser(&user); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	_, err := config.DB.Exec(c.Context(), "UPDATE account.users SET user_name = $1, user_email = $2 WHERE id = $3", user.Name, user.Email, user.ID)
+	err := h.userService.UpdateUser(user)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to update users"})
+		log.Error(err)
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to create user"})
 	}
 
 	return c.JSON(user)
 }
 
-func DeleteUser(c *fiber.Ctx) error {
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	var user models.User
 	if err := c.BodyParser(&user); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	_, err := config.DB.Exec(c.Context(), "DELETE FROM account.users WHERE id = $1", user.ID)
+	err := h.userService.DeleteUser(user)
 	if err != nil {
 		log.Error(err)
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete users"})
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to create user"})
 	}
 
-	return c.JSON(user)
+	return c.JSON(fiber.Map{"message": "succes delete data"})
 }

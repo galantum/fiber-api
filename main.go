@@ -1,8 +1,11 @@
 package main
 
 import (
-	"fiber-api/config"
+	"fiber-api/handlers"
+	"fiber-api/infrastructure"
+	"fiber-api/repositories"
 	"fiber-api/routes"
+	"fiber-api/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -11,20 +14,20 @@ import (
 
 func main() {
 	// connect DB
-	config.ConnectDB()
+	infrastructure.ConnectDB()
 
 	app := fiber.New()
 
 	// Middleware
 	app.Use(logger.New(), cors.New())
 
-	// Routes
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"message": "Welcome to Fiber API"})
-	})
+	// Dependency Injection
+	userRepo := repositories.NewUserRepository()
+	userService := services.NewUserService(userRepo)
+	userHandler := handlers.NewUserHandler(userService)
 
-	// routes API modul users
-	routes.SetupUserRoutes(app)
+	// Register Routes
+	routes.SetupUserRoutes(app, userHandler)
 
 	app.Listen(":8000")
 }
